@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AppData, Cliente } from '../types'
 import { addCliente, updateCliente, deleteCliente, historicoCliente, formatCurrency, formatDate } from '../store'
 import { useToast } from '../components/Toast'
+import ShareButton from '../components/ShareButton'
 
 interface Props {
   data: AppData
@@ -78,6 +79,21 @@ export default function Clientes({ data, update }: Props) {
           {clienteSelecionado.telefone && <p className="text-sm text-accent-light mt-1">📱 {clienteSelecionado.telefone}</p>}
           {clienteSelecionado.instagram && <p className="text-sm text-accent-light">📷 @{clienteSelecionado.instagram}</p>}
           {clienteSelecionado.observacoes && <p className="text-sm text-lumine-ink/70 mt-2 italic">"{clienteSelecionado.observacoes}"</p>}
+
+          {/* Botões de ação */}
+          <div className="flex gap-2 mt-3">
+            {clienteSelecionado.telefone && (
+              <a href={`https://wa.me/55${clienteSelecionado.telefone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                className="flex-1 py-2.5 bg-[#25D366]/10 border border-[#25D366]/30 rounded-xl flex items-center justify-center gap-1.5 font-semibold text-[#25D366] text-sm tapable"
+              >
+                💬 WhatsApp
+              </a>
+            )}
+            <ShareButton
+              texto={`Cliente: ${clienteSelecionado.nome} • Total gasto: ${formatCurrency(hist.totalGasto)} • ${hist.totalCompras} compras • Última: ${hist.ultimaCompra ? formatDate(hist.ultimaCompra) : '—'} • Lumine App`}
+              className={`py-2.5 bg-card border border-accent-light/30 rounded-xl flex items-center justify-center gap-1.5 font-semibold text-accent-light text-sm tapable ${clienteSelecionado.telefone ? 'flex-1' : 'w-full'}`}
+            />
+          </div>
 
           <div className="grid grid-cols-3 gap-3 mt-4">
             <div className="bg-lumine-bg rounded-xl p-3 text-center">

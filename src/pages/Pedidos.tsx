@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AppData, Pedido as PedidoTipo, Produto, ItemVenda } from '../types'
 import { addPedido, marcarEntregue, formatCurrency, formatDate, todayStr } from '../store'
 import { useToast } from '../components/Toast'
+import ShareButton from '../components/ShareButton'
 
 type Aba = 'fazer' | 'concluidos'
 
@@ -160,11 +161,17 @@ export default function Pedidos({ data, update }: Props) {
                 <div className="text-xs text-lumine-ink/70 mb-3">
                   {p.itens.map(i => `${i.nome} x${i.qtd}`).join(' · ')}
                 </div>
-                <button onClick={() => entregar(p)}
-                  className="w-full py-2 bg-success text-white rounded-xl text-sm font-semibold tapable"
-                >
-                  ✅ Marcar como Entregue
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => entregar(p)}
+                    className="flex-1 py-2 bg-success text-white rounded-xl text-sm font-semibold tapable"
+                  >
+                    ✅ Marcar como Entregue
+                  </button>
+                  <ShareButton
+                    texto={`Pedido: ${p.nomeCliente} • Entrega: ${formatDate(p.dataEntrega)} • ${formatCurrency(p.total)} • ${p.itens.map(i => `${i.nome} x${i.qtd}`).join(', ')} • Lumine App`}
+                    className="py-2 px-3 bg-card border border-accent-light/30 rounded-xl text-sm tapable"
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -188,9 +195,13 @@ export default function Pedidos({ data, update }: Props) {
                   </div>
                   <span className="text-sm font-bold text-success">{formatCurrency(p.total)}</span>
                 </div>
-                <div className="text-xs text-lumine-ink/70">
+                <div className="text-xs text-lumine-ink/70 mb-3">
                   {p.itens.map(i => `${i.nome} x${i.qtd}`).join(' · ')}
                 </div>
+                <ShareButton
+                  texto={`Pedido: ${p.nomeCliente} • Entrega: ${formatDate(p.dataEntrega)} • ${formatCurrency(p.total)} • ${p.itens.map(i => `${i.nome} x${i.qtd}`).join(', ')} • Lumine App`}
+                  className="py-1.5 text-xs text-accent-light tapable"
+                />
               </div>
             ))}
           </div>
