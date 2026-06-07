@@ -10,8 +10,9 @@ const Vender = lazy(() => import('./pages/Vender'))
 const Pedidos = lazy(() => import('./pages/Pedidos'))
 const Clientes = lazy(() => import('./pages/Clientes'))
 const Financas = lazy(() => import('./pages/Financas'))
+const Catalogo = lazy(() => import('./pages/Catalogo'))
 
-type Page = 'inicio' | 'produtos' | 'vender' | 'pedidos' | 'clientes' | 'financas'
+type Page = 'inicio' | 'produtos' | 'vender' | 'pedidos' | 'clientes' | 'financas' | 'catalogo'
 
 const NAV: { id: Page; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Início', icon: '🏠' },
@@ -20,6 +21,7 @@ const NAV: { id: Page; label: string; icon: string }[] = [
   { id: 'pedidos', label: 'Pedidos', icon: '📋' },
   { id: 'clientes', label: 'Clientes', icon: '👥' },
   { id: 'financas', label: 'Finanças', icon: '📊' },
+  { id: 'catalogo', label: 'Catálogo', icon: '📖' },
 ]
 
 function Spinner() {
@@ -144,6 +146,7 @@ export default function App() {
             {page === 'pedidos' && <Pedidos {...props} />}
             {page === 'clientes' && <Clientes {...props} />}
             {page === 'financas' && <Financas {...props} />}
+            {page === 'catalogo' && <Catalogo data={data} />}
           </Suspense>
         </main>
 
