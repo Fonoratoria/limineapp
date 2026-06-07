@@ -2,6 +2,15 @@
 
 export type FormaPagamento = 'Pix' | 'Cartão' | 'Dinheiro'
 
+export interface Cliente {
+  id: string
+  nome: string
+  telefone?: string
+  instagram?: string
+  observacoes?: string
+  criadoEm: string       // "YYYY-MM-DD"
+}
+
 export interface Produto {
   id: string
   nome: string
@@ -25,6 +34,8 @@ export interface Venda {
   itens: ItemVenda[]
   formaPagamento: FormaPagamento
   total: number
+  clienteId?: string     // vinculado a cliente (opcional)
+  clienteNome?: string   // nome no momento da venda
 }
 
 export type StatusPedido = 'pendente' | 'entregue'
@@ -39,10 +50,12 @@ export interface Pedido {
   status: StatusPedido
   pago: boolean
   formaPagamento?: FormaPagamento
+  clienteId?: string     // vinculado a cliente cadastrado (opcional)
 }
 
 export interface AppData {
   produtos: Produto[]
   vendas: Venda[]
   pedidos: Pedido[]
+  clientes: Cliente[]
 }

@@ -7,15 +7,17 @@ const Inicio = lazy(() => import('./pages/Inicio'))
 const Produtos = lazy(() => import('./pages/Produtos'))
 const Vender = lazy(() => import('./pages/Vender'))
 const Pedidos = lazy(() => import('./pages/Pedidos'))
+const Clientes = lazy(() => import('./pages/Clientes'))
 const Financas = lazy(() => import('./pages/Financas'))
 
-type Page = 'inicio' | 'produtos' | 'vender' | 'pedidos' | 'financas'
+type Page = 'inicio' | 'produtos' | 'vender' | 'pedidos' | 'clientes' | 'financas'
 
 const NAV: { id: Page; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Início', icon: '🏠' },
   { id: 'produtos', label: 'Produtos', icon: '📦' },
   { id: 'vender', label: 'Vender', icon: '🛒' },
   { id: 'pedidos', label: 'Pedidos', icon: '📋' },
+  { id: 'clientes', label: 'Clientes', icon: '👥' },
   { id: 'financas', label: 'Finanças', icon: '📊' },
 ]
 
@@ -53,6 +55,7 @@ export default function App() {
             {page === 'produtos' && <Produtos {...props} />}
             {page === 'vender' && <Vender {...props} />}
             {page === 'pedidos' && <Pedidos {...props} />}
+            {page === 'clientes' && <Clientes {...props} />}
             {page === 'financas' && <Financas {...props} />}
           </Suspense>
         </main>

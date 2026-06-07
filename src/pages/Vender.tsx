@@ -18,6 +18,10 @@ export default function Vender({ data, update }: Props) {
   const { notify } = useToast()
   const [carrinho, setCarrinho] = useState<ItemVenda[]>([])
   const [showPagamento, setShowPagamento] = useState(false)
+  const [clienteSelecionadoId, setClienteSelecionadoId] = useState<string | undefined>(undefined)
+  const [showClientePicker, setShowClientePicker] = useState(false)
+
+  const clienteSelecionado = data.clientes.find(c => c.id === clienteSelecionadoId)
 
   function addItem(p: Produto) {
     if (p.estoque <= 0) { notify('Produto sem estoque!'); return }
@@ -46,7 +50,7 @@ export default function Vender({ data, update }: Props) {
   }
 
   function cobrar(forma: string) {
-    const { vendas } = registrarVenda(data.vendas, carrinho, forma)
+    const { vendas } = registrarVenda(data.vendas, carrinho, forma, clienteSelecionadoId, clienteSelecionado?.nome)
     // Atualiza estoque
     const produtos = data.produtos.map(p => {
       const item = carrinho.find(i => i.produtoId === p.id)
@@ -59,6 +63,43 @@ export default function Vender({ data, update }: Props) {
   }
 
   const total = carrinho.reduce((s, i) => s + i.precoUnit * i.qtd, 0)
+
+  // Modal de seleção de cliente
+  if (showClientePicker) return (
+    <div className="p-4 space-y-4 max-w-md mx-auto">
+      <button onClick={() => setShowClientePicker(false)} className="text-sm text-primary font-semibold">← Voltar</button>
+      <h2 className="text-lg font-bold text-lumine-ink">👤 Quem está comprando?</h2>
+
+      {/* Opção avulso */}
+      <button onClick={() => { setClienteSelecionadoId(undefined); setShowClientePicker(false) }}
+        className={`w-full py-3 rounded-xl flex items-center justify-center gap-2 font-semibold tapable border ${
+          !clienteSelecionadoId ? 'bg-primary/10 border-primary text-primary' : 'bg-card border-accent-light/30 text-lumine-ink'
+        }`}
+      >
+        🛒 Cliente Avulso
+      </button>
+
+      {/* Lista de clientes */}
+      {data.clientes.length === 0 ? (
+        <p className="text-center text-accent-light text-sm py-4">Nenhum cliente cadastrado ainda</p>
+      ) : (
+        <div className="space-y-2">
+          {[...data.clientes].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(c => (
+            <button key={c.id} onClick={() => { setClienteSelecionadoId(c.id); setShowClientePicker(false) }}
+              className={`w-full py-3 rounded-xl flex items-center gap-3 px-4 font-medium tapable border ${
+                clienteSelecionadoId === c.id ? 'bg-primary/10 border-primary text-primary' : 'bg-card border-accent-light/30 text-lumine-ink'
+              }`}
+            >
+              <div className="w-8 h-8 rounded-full bg-accent-light/20 flex items-center justify-center text-sm shrink-0">
+                {c.nome.charAt(0).toUpperCase()}
+              </div>
+              {c.nome}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 
   // Modal de pagamento
   if (showPagamento && carrinho.length > 0) return (
@@ -121,6 +162,19 @@ export default function Vender({ data, update }: Props) {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Cliente selecionado */}
+      <div className="bg-white border-t border-accent-light/20 px-4 py-2">
+        <button onClick={() => setShowClientePicker(true)}
+          className="w-full flex items-center justify-between text-sm tapable"
+        >
+          <span className="text-accent-light">👤 Cliente:</span>
+          <span className={`font-semibold ${clienteSelecionado ? 'text-lumine-ink' : 'text-accent-light'}`}>
+            {clienteSelecionado ? clienteSelecionado.nome : 'Avulso'}
+            <span className="text-accent-light ml-1 text-xs">▶</span>
+          </span>
+        </button>
       </div>
 
       {/* Carrinho (parte inferior) */}

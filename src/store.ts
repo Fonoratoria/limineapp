@@ -1,10 +1,10 @@
-import { AppData, Produto, Venda, Pedido, ItemVenda } from './types'
+import { AppData, Produto, Venda, Pedido, Cliente, ItemVenda } from './types'
 import { v4 as uuid } from 'uuid'
 
 const KEY = 'lumine_v1'
 
 function emptyData(): AppData {
-  return { produtos: [], vendas: [], pedidos: [] }
+  return { produtos: [], vendas: [], pedidos: [], clientes: [] }
 }
 
 export function loadData(): AppData {
@@ -61,7 +61,7 @@ export function deleteProduto(produtos: Produto[], id: string): Produto[] {
 
 // ====== Vendas ======
 
-export function registrarVenda(vendas: Venda[], itens: ItemVenda[], formaPagamento: string): { vendas: Venda[]; venda: Venda } {
+export function registrarVenda(vendas: Venda[], itens: ItemVenda[], formaPagamento: string, clienteId?: string, clienteNome?: string): { vendas: Venda[]; venda: Venda } {
   const total = itens.reduce((s, i) => s + i.precoUnit * i.qtd, 0)
   const venda: Venda = {
     id: uuid(),
@@ -70,6 +70,8 @@ export function registrarVenda(vendas: Venda[], itens: ItemVenda[], formaPagamen
     itens,
     formaPagamento: formaPagamento as any,
     total,
+    clienteId,
+    clienteNome,
   }
   return { vendas: [...vendas, venda], venda }
 }
@@ -123,7 +125,7 @@ export function rankingProdutosMes(vendas: Venda[], produtos: Produto[], mes: st
 
 // ====== Pedidos ======
 
-export function addPedido(pedidos: Pedido[], nomeCliente: string, dataEntrega: string, itens: { produtoId: string; nome: string; qtd: number; precoUnit: number }[]): Pedido[] {
+export function addPedido(pedidos: Pedido[], nomeCliente: string, dataEntrega: string, itens: { produtoId: string; nome: string; qtd: number; precoUnit: number }[], clienteId?: string): Pedido[] {
   const total = itens.reduce((s, i) => s + i.precoUnit * i.qtd, 0)
   return [...pedidos, {
     id: uuid(),
@@ -134,6 +136,7 @@ export function addPedido(pedidos: Pedido[], nomeCliente: string, dataEntrega: s
     total,
     status: 'pendente',
     pago: false,
+    clienteId,
   }]
 }
 
@@ -147,4 +150,55 @@ export function pedidosPendentesHoje(pedidos: Pedido[], data: string): Pedido[] 
 
 export function produtosEstoqueBaixo(produtos: Produto[]): Produto[] {
   return produtos.filter(p => p.estoque <= 1)
+}
+
+// ====== Clientes ======
+
+export function addCliente(clientes: Cliente[], nome: string, telefone?: string, instagram?: string, observacoes?: string): Cliente[] {
+  return [...clientes, {
+    id: uuid(),
+    nome,
+    telefone: telefone || undefined,
+    instagram: instagram || undefined,
+    observacoes: observacoes || undefined,
+    criadoEm: todayStr(),
+  }]
+}
+
+export function updateCliente(clientes: Cliente[], id: string, dados: Partial<Omit<Cliente, 'id' | 'criadoEm'>>): Cliente[] {
+  return clientes.map(c => c.id === id ? { ...c, ...dados } : c)
+}
+
+export function deleteCliente(clientes: Cliente[], id: string): Cliente[] {
+  return clientes.filter(c => c.id !== id)
+}
+
+// Histórico de compras de um cliente (vendas + pedidos)
+export function historicoCliente(vendas: Venda[], pedidos: Pedido[], clienteId: string): {
+  totalGasto: number
+  totalCompras: number
+  ultimaCompra: string | null
+  vendas: Venda[]
+  pedidos: Pedido[]
+} {
+  const vendasCliente = vendas.filter(v => v.clienteId === clienteId)
+  const pedidosCliente = pedidos.filter(p => p.clienteId === clienteId)
+
+  const totalGasto = vendasCliente.reduce((s, v) => s + v.total, 0) +
+    pedidosCliente.filter(p => p.pago).reduce((s, p) => s + p.total, 0)
+
+  const datas: string[] = [
+    ...vendasCliente.map(v => v.data),
+    ...pedidosCliente.map(p => p.dataCriacao),
+  ]
+  datas.sort()
+  const ultimaCompra = datas.length > 0 ? datas[datas.length - 1] : null
+
+  return {
+    totalGasto,
+    totalCompras: vendasCliente.length + pedidosCliente.length,
+    ultimaCompra,
+    vendas: vendasCliente,
+    pedidos: pedidosCliente,
+  }
 }
