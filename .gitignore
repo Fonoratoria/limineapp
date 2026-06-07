@@ -1,0 +1,31 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Ambiente local
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# PWA (gerado no build)
+dist/sw.js
+dist/workbox-*.js
