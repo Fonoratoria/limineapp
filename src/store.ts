@@ -1,10 +1,10 @@
-import { AppData, Produto, Venda, Pedido, Cliente, ItemVenda } from './types'
+import { AppData, Produto, Venda, Pedido, Cliente, ItemVenda, LancamentoCaixa, TipoLancamento } from './types'
 import { v4 as uuid } from 'uuid'
 
 const KEY = 'lumine_v1'
 
 function emptyData(): AppData {
-  return { produtos: [], vendas: [], pedidos: [], clientes: [] }
+  return { produtos: [], vendas: [], pedidos: [], clientes: [], caixa: [] }
 }
 
 export function loadData(): AppData {
@@ -45,10 +45,23 @@ export function formatCurrency(val: number | null | undefined): string {
   return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+// ====== Preço de Atacado ======
+
+/** Calcula o preço unitário correto com base na quantidade:
+ *  se tiver preço de atacado E a qtd >= qtd mínima → preço de atacado,
+ *  senão → preço de varejo.
+ */
+export function calcularPrecoUnitario(p: Produto, qtd: number): number {
+  if (p.precoAtacado != null && p.qtdMinimaAtacado != null && qtd >= p.qtdMinimaAtacado) {
+    return p.precoAtacado
+  }
+  return p.precoVarejo
+}
+
 // ====== Produtos ======
 
-export function addProduto(produtos: Produto[], nome: string, foto: string, custo: number, preco: number, estoque: number): Produto[] {
-  return [...produtos, { id: uuid(), nome, foto, custo, preco, estoque }]
+export function addProduto(produtos: Produto[], nome: string, foto: string, custo: number, precoVarejo: number, estoque: number, precoAtacado?: number, qtdMinimaAtacado?: number): Produto[] {
+  return [...produtos, { id: uuid(), nome, foto, custo, precoVarejo, estoque, precoAtacado, qtdMinimaAtacado }]
 }
 
 export function updateProduto(produtos: Produto[], id: string, dados: Partial<Omit<Produto, 'id'>>): Produto[] {
@@ -150,6 +163,39 @@ export function pedidosPendentesHoje(pedidos: Pedido[], data: string): Pedido[] 
 
 export function produtosEstoqueBaixo(produtos: Produto[]): Produto[] {
   return produtos.filter(p => p.estoque <= 1)
+}
+
+// ====== Caixa (Receitas e Despesas) ======
+
+export function addLancamento(caixa: LancamentoCaixa[], descricao: string, valor: number, tipo: TipoLancamento, data: string, categoria?: string): LancamentoCaixa[] {
+  return [...caixa, { id: uuid(), descricao, valor, tipo, data, categoria }]
+}
+
+export function deleteLancamento(caixa: LancamentoCaixa[], id: string): LancamentoCaixa[] {
+  return caixa.filter(l => l.id !== id)
+}
+
+export function caixaDoMes(caixa: LancamentoCaixa[], mes: string): LancamentoCaixa[] {
+  return caixa.filter(l => l.data.startsWith(mes))
+}
+
+export function totalReceitasMes(caixa: LancamentoCaixa[], mes: string): number {
+  return caixa.filter(l => l.tipo === 'receita' && l.data.startsWith(mes)).reduce((s, l) => s + l.valor, 0)
+}
+
+export function totalDespesasMes(caixa: LancamentoCaixa[], mes: string): number {
+  return caixa.filter(l => l.tipo === 'despesa' && l.data.startsWith(mes)).reduce((s, l) => s + l.valor, 0)
+}
+
+export function saldoMes(caixa: LancamentoCaixa[], mes: string): number {
+  return totalReceitasMes(caixa, mes) - totalDespesasMes(caixa, mes)
+}
+
+// Lista de meses que têm lançamentos (para navegação)
+export function mesesComLancamentos(caixa: LancamentoCaixa[]): string[] {
+  const set = new Set(caixa.map(l => l.data.slice(0, 7)))
+  const meses = Array.from(set).sort((a, b) => b.localeCompare(a)) // mais recente primeiro
+  return meses
 }
 
 // ====== Clientes ======

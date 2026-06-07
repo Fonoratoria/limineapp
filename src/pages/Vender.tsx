@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AppData, FormaPagamento, ItemVenda, Produto } from '../types'
-import { registrarVenda, formatCurrency } from '../store'
+import { registrarVenda, formatCurrency, calcularPrecoUnitario } from '../store'
 import { useToast } from '../components/Toast'
 
 const PAGAMENTOS: { id: FormaPagamento; label: string; icon: string }[] = [
@@ -27,10 +27,13 @@ export default function Vender({ data, update }: Props) {
     if (p.estoque <= 0) { notify('Produto sem estoque!'); return }
     const existente = carrinho.find(i => i.produtoId === p.id)
     if (existente) {
-      if (existente.qtd >= p.estoque) { notify('Estoque insuficiente!'); return }
-      setCarrinho(carrinho.map(i => i.produtoId === p.id ? { ...i, qtd: i.qtd + 1 } : i))
+      const novaQtd = existente.qtd + 1
+      if (novaQtd > p.estoque) { notify('Estoque insuficiente!'); return }
+      const novoPreco = calcularPrecoUnitario(p, novaQtd)
+      setCarrinho(carrinho.map(i => i.produtoId === p.id ? { ...i, qtd: novaQtd, precoUnit: novoPreco } : i))
     } else {
-      setCarrinho([...carrinho, { produtoId: p.id, nome: p.nome, qtd: 1, precoUnit: p.preco }])
+      const preco = calcularPrecoUnitario(p, 1)
+      setCarrinho([...carrinho, { produtoId: p.id, nome: p.nome, qtd: 1, precoUnit: preco }])
     }
   }
 
@@ -45,7 +48,8 @@ export default function Vender({ data, update }: Props) {
       if (nova <= 0) return i // vai ser filtrado abaixo
       const p = data.produtos.find(x => x.id === produtoId)
       if (p && nova > p.estoque) { notify('Estoque insuficiente!'); return i }
-      return { ...i, qtd: nova }
+      const novoPreco = p ? calcularPrecoUnitario(p, nova) : i.precoUnit
+      return { ...i, qtd: nova, precoUnit: novoPreco }
     }).filter(i => i.qtd > 0))
   }
 
@@ -54,7 +58,7 @@ export default function Vender({ data, update }: Props) {
     // Atualiza estoque
     const produtos = data.produtos.map(p => {
       const item = carrinho.find(i => i.produtoId === p.id)
-      return item ? { ...p, estoque: p.estoque - item.qtd } : p
+      return item ? { ...p, estoque: Math.max(0, p.estoque - item.qtd) } : p
     })
     update({ ...data, vendas, produtos })
     notify(`Venda de ${formatCurrency(carrinho.reduce((s, i) => s + i.precoUnit * i.qtd, 0))} finalizada!`)
@@ -156,7 +160,10 @@ export default function Vender({ data, update }: Props) {
                   <div className="w-20 h-20 rounded-xl bg-accent-light/20 flex items-center justify-center text-3xl">🕯️</div>
                 )}
                 <p className="text-sm font-semibold text-lumine-ink text-center leading-tight">{p.nome}</p>
-                <p className="text-sm font-bold text-primary">{formatCurrency(p.preco)}</p>
+                <p className="text-sm font-bold text-primary">{formatCurrency(p.precoVarejo)}</p>
+                {p.precoAtacado != null && p.qtdMinimaAtacado != null && (
+                  <p className="text-[10px] text-primary/70 font-medium">📦 {formatCurrency(p.precoAtacado)} +{p.qtdMinimaAtacado}</p>
+                )}
                 {p.estoque <= 0 && <p className="text-xs text-danger">Esgotado</p>}
               </button>
             ))}

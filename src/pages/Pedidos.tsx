@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AppData, Pedido as PedidoTipo, Produto, ItemVenda } from '../types'
-import { addPedido, marcarEntregue, formatCurrency, formatDate, todayStr } from '../store'
+import { addPedido, marcarEntregue, formatCurrency, formatDate, todayStr, calcularPrecoUnitario } from '../store'
 import { useToast } from '../components/Toast'
 import ShareButton from '../components/ShareButton'
 
@@ -24,9 +24,12 @@ export default function Pedidos({ data, update }: Props) {
   function addItemPedido(p: Produto) {
     const existente = itensPedido.find(i => i.produtoId === p.id)
     if (existente) {
-      setItensPedido(itensPedido.map(i => i.produtoId === p.id ? { ...i, qtd: i.qtd + 1 } : i))
+      const novaQtd = existente.qtd + 1
+      const novoPreco = calcularPrecoUnitario(p, novaQtd)
+      setItensPedido(itensPedido.map(i => i.produtoId === p.id ? { ...i, qtd: novaQtd, precoUnit: novoPreco } : i))
     } else {
-      setItensPedido([...itensPedido, { produtoId: p.id, nome: p.nome, qtd: 1, precoUnit: p.preco }])
+      const preco = calcularPrecoUnitario(p, 1)
+      setItensPedido([...itensPedido, { produtoId: p.id, nome: p.nome, qtd: 1, precoUnit: preco }])
     }
   }
 
@@ -35,9 +38,13 @@ export default function Pedidos({ data, update }: Props) {
   }
 
   function alterarQtdPedido(produtoId: string, delta: number) {
-    setItensPedido(prev => prev.map(i =>
-      i.produtoId === produtoId ? { ...i, qtd: Math.max(1, i.qtd + delta) } : i
-    ))
+    setItensPedido(prev => prev.map(i => {
+      if (i.produtoId !== produtoId) return i
+      const novaQtd = Math.max(1, i.qtd + delta)
+      const p = data.produtos.find(x => x.id === produtoId)
+      const novoPreco = p ? calcularPrecoUnitario(p, novaQtd) : i.precoUnit
+      return { ...i, qtd: novaQtd, precoUnit: novoPreco }
+    }))
   }
 
   function salvarPedido() {
@@ -94,6 +101,7 @@ export default function Pedidos({ data, update }: Props) {
                   <span className="w-5 text-center text-sm">{i.qtd}</span>
                   <button onClick={() => alterarQtdPedido(i.produtoId, 1)} className="w-6 h-6 rounded-full bg-accent-light/20 text-xs font-bold">+</button>
                 </div>
+                <span className="text-xs font-semibold">{formatCurrency(i.precoUnit * i.qtd)}</span>
                 <button onClick={() => removeItemPedido(i.produtoId)} className="text-danger text-xs">✕</button>
               </div>
             ))}
@@ -104,7 +112,10 @@ export default function Pedidos({ data, update }: Props) {
             <button key={p.id} onClick={() => addItemPedido(p)}
               className="text-xs bg-card border border-accent-light/20 rounded-lg px-2.5 py-1.5 text-left tapable"
             >
-              🕯️ {p.nome} <span className="text-primary font-semibold">{formatCurrency(p.preco)}</span>
+              🕯️ {p.nome} <span className="text-primary font-semibold">{formatCurrency(p.precoVarejo)}</span>
+              {p.precoAtacado != null && p.qtdMinimaAtacado != null && (
+                <span className="text-[9px] text-primary/60 ml-1">📦{formatCurrency(p.precoAtacado)}</span>
+              )}
             </button>
           ))}
         </div>

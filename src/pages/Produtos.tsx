@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { AppData, Produto } from '../types'
-import { formatCurrency, addProduto, updateProduto, deleteProduto } from '../store'
+import { formatCurrency, addProduto, updateProduto, deleteProduto, calcularPrecoUnitario } from '../store'
 import { useToast } from '../components/Toast'
 
 interface Props {
@@ -17,19 +17,23 @@ export default function Produtos({ data, update }: Props) {
   // Campos do formulário
   const [nome, setNome] = useState('')
   const [custo, setCusto] = useState('')
-  const [preco, setPreco] = useState('')
+  const [precoVarejo, setPrecoVarejo] = useState('')
+  const [precoAtacado, setPrecoAtacado] = useState('')
+  const [qtdMinimaAtacado, setQtdMinimaAtacado] = useState('')
   const [estoque, setEstoque] = useState('')
   const [foto, setFoto] = useState('')
 
   function abrirNovo() {
     setEditando(null)
-    setNome(''); setCusto(''); setPreco(''); setEstoque(''); setFoto('')
+    setNome(''); setCusto(''); setPrecoVarejo(''); setPrecoAtacado(''); setQtdMinimaAtacado(''); setEstoque(''); setFoto('')
     setShowForm(true)
   }
 
   function abrirEditar(p: Produto) {
     setEditando(p)
-    setNome(p.nome); setCusto(String(p.custo)); setPreco(String(p.preco))
+    setNome(p.nome); setCusto(String(p.custo)); setPrecoVarejo(String(p.precoVarejo ?? ''))
+    setPrecoAtacado(p.precoAtacado != null ? String(p.precoAtacado) : '')
+    setQtdMinimaAtacado(p.qtdMinimaAtacado != null ? String(p.qtdMinimaAtacado) : '')
     setEstoque(String(p.estoque)); setFoto(p.foto || '')
     setShowForm(true)
   }
@@ -45,15 +49,20 @@ export default function Produtos({ data, update }: Props) {
   function salvar() {
     if (!nome.trim()) return
     const c = parseFloat(custo) || 0
-    const p = parseFloat(preco) || 0
+    const pv = parseFloat(precoVarejo) || 0
+    const pa = precoAtacado.trim() ? (parseFloat(precoAtacado) || undefined) : undefined
+    const qma = qtdMinimaAtacado.trim() ? (parseInt(qtdMinimaAtacado) || undefined) : undefined
     const e = parseInt(estoque) || 0
 
     if (editando) {
-      const produtos = updateProduto(data.produtos, editando.id, { nome: nome.trim(), foto, custo: c, preco: p, estoque: e })
+      const produtos = updateProduto(data.produtos, editando.id, {
+        nome: nome.trim(), foto, custo: c, precoVarejo: pv,
+        precoAtacado: pa, qtdMinimaAtacado: qma, estoque: e
+      })
       update({ ...data, produtos })
       notify(`"${nome}" atualizado!`)
     } else {
-      const produtos = addProduto(data.produtos, nome.trim(), foto, c, p, e)
+      const produtos = addProduto(data.produtos, nome.trim(), foto, c, pv, e, pa, qma)
       update({ ...data, produtos })
       notify(`"${nome}" criado!`)
     }
@@ -92,8 +101,23 @@ export default function Produtos({ data, update }: Props) {
           <input type="number" step="0.01" value={custo} onChange={e => setCusto(e.target.value)} className="w-full border border-accent-light/40 rounded-xl px-3 py-2 text-sm bg-white" placeholder="0,00" />
         </div>
         <div>
-          <p className="text-sm font-medium text-lumine-ink mb-1">Preço (R$)</p>
-          <input type="number" step="0.01" value={preco} onChange={e => setPreco(e.target.value)} className="w-full border border-accent-light/40 rounded-xl px-3 py-2 text-sm bg-white" placeholder="0,00" />
+          <p className="text-sm font-medium text-lumine-ink mb-1">Preço Varejo (R$)</p>
+          <input type="number" step="0.01" value={precoVarejo} onChange={e => setPrecoVarejo(e.target.value)} className="w-full border border-accent-light/40 rounded-xl px-3 py-2 text-sm bg-white" placeholder="0,00" />
+        </div>
+      </div>
+
+      {/* Preço de Atacado */}
+      <div className="bg-lumine-bg rounded-xl p-3 space-y-2 border border-accent-light/20">
+        <p className="text-sm font-semibold text-lumine-ink flex items-center gap-1">📦 Preço de Atacado <span className="text-[10px] text-accent-light font-normal">(opcional)</span></p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs text-accent-light mb-0.5">Preço unitário (R$)</p>
+            <input type="number" step="0.01" value={precoAtacado} onChange={e => setPrecoAtacado(e.target.value)} className="w-full border border-accent-light/40 rounded-xl px-3 py-2 text-sm bg-white" placeholder="0,00" />
+          </div>
+          <div>
+            <p className="text-xs text-accent-light mb-0.5">Qtd. mínima</p>
+            <input type="number" value={qtdMinimaAtacado} onChange={e => setQtdMinimaAtacado(e.target.value)} className="w-full border border-accent-light/40 rounded-xl px-3 py-2 text-sm bg-white" placeholder="10" />
+          </div>
         </div>
       </div>
 
@@ -135,8 +159,13 @@ export default function Produtos({ data, update }: Props) {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-lumine-ink truncate">{p.nome}</p>
                 <p className="text-xs text-accent-light">
-                  Custo {formatCurrency(p.custo)} · Venda {formatCurrency(p.preco)}
+                  Custo {formatCurrency(p.custo)} · Venda {formatCurrency(p.precoVarejo)}
                 </p>
+                {p.precoAtacado != null && p.qtdMinimaAtacado != null && (
+                  <p className="text-xs text-primary font-medium mt-0.5">
+                    📦 Atacado: {formatCurrency(p.precoAtacado)} (mín. {p.qtdMinimaAtacado} un.)
+                  </p>
+                )}
                 <p className={`text-xs font-medium mt-0.5 ${p.estoque <= 1 ? 'text-danger' : 'text-success'}`}>
                   Estoque: {p.estoque} {p.estoque === 0 ? '⚠️' : p.estoque === 1 ? '⚠️' : ''}
                 </p>

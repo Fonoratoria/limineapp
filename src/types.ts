@@ -16,7 +16,9 @@ export interface Produto {
   nome: string
   foto: string         // base64
   custo: number        // custo de produção
-  preco: number        // preço de venda
+  precoVarejo: number  // preço de venda normal (varejo)
+  precoAtacado?: number  // preço com desconto para quantidades grandes (opcional)
+  qtdMinimaAtacado?: number // quantidade mínima para ativar o preço de atacado (opcional)
   estoque: number      // quantidade produzida disponível
 }
 
@@ -36,6 +38,17 @@ export interface Venda {
   total: number
   clienteId?: string     // vinculado a cliente (opcional)
   clienteNome?: string   // nome no momento da venda
+}
+
+export type TipoLancamento = 'receita' | 'despesa'
+
+export interface LancamentoCaixa {
+  id: string
+  descricao: string
+  valor: number
+  tipo: TipoLancamento
+  data: string         // "YYYY-MM-DD"
+  categoria?: string   // opcional (ex: "Material", "Frete", "Feira")
 }
 
 export type StatusPedido = 'pendente' | 'entregue'
@@ -58,4 +71,5 @@ export interface AppData {
   vendas: Venda[]
   pedidos: Pedido[]
   clientes: Cliente[]
+  caixa: LancamentoCaixa[]
 }
