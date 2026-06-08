@@ -79,14 +79,12 @@ export default function App() {
     const res = await pullFromCloud()
     if (!res.ok) { setSync('offline'); return }
     if (res.data && Array.isArray(res.data.produtos)) {
-      // Mescla nuvem + local (nuvem tem prioridade para itens com mesmo ID)
-      const merged = mergeData(dataRef.current, res.data)
-      // Só atualiza state se realmente mudou algo (evita re-render desnecessário)
+      // Usa os dados da nuvem diretamente (autoridade da verdade)
       const currentJson = JSON.stringify(dataRef.current)
-      const mergedJson = JSON.stringify(merged)
-      if (mergedJson !== currentJson) {
-        saveData(merged)
-        setData(merged)
+      const cloudJson = JSON.stringify(res.data)
+      if (cloudJson !== currentJson) {
+        saveData(res.data)
+        setData(res.data)
       }
       setSync('synced')
     } else {
