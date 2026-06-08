@@ -24,10 +24,21 @@ const MESES_NOMES: Record<string, string> = {
   '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro',
 }
 
+const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
 function nomeMes(mes: string): string {
   const m = mes.slice(5, 7)
   const ano = mes.slice(0, 4)
   return `${MESES_NOMES[m] || m} ${ano}`
+}
+
+function formatDiaCompleto(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  const dia = String(d).padStart(2, '0')
+  const mes = String(m).padStart(2, '0')
+  const dow = DIAS_SEMANA[dt.getDay()]
+  return `${dia}/${mes} · ${dow}`
 }
 
 export default function Financas({ data, update }: Props) {
@@ -35,8 +46,9 @@ export default function Financas({ data, update }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [tipoSelecionado, setTipoSelecionado] = useState<TipoLancamento>('receita')
   const [mesSelecionado, setMesSelecionado] = useState(monthStr())
+  const [editando, setEditando] = useState<LancamentoCaixa | null>(null)
 
-  // Campos do formulário de lançamento
+  // Campos do formulário
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [dataLanc, setDataLanc] = useState(todayStr())
@@ -55,7 +67,18 @@ export default function Financas({ data, update }: Props) {
   const mesesAnteriores = mesesComLancamentos(data.caixa)
 
   function abrirNovo() {
+    setEditando(null)
     setDescricao(''); setValor(''); setDataLanc(todayStr()); setCategoria(''); setTipoSelecionado('receita')
+    setShowForm(true)
+  }
+
+  function abrirEditar(l: LancamentoCaixa) {
+    setEditando(l)
+    setDescricao(l.descricao)
+    setValor(String(l.valor))
+    setDataLanc(l.data)
+    setCategoria(l.categoria || '')
+    setTipoSelecionado(l.tipo)
     setShowForm(true)
   }
 
@@ -63,10 +86,24 @@ export default function Financas({ data, update }: Props) {
     if (!descricao.trim()) return
     const v = parseFloat(valor) || 0
     if (v <= 0) { notify('Informe um valor válido!'); return }
-    const caixa = addLancamento(data.caixa, descricao.trim(), v, tipoSelecionado, dataLanc, categoria || undefined)
-    update({ ...data, caixa })
-    notify(`"${descricao}" registrado!`)
+
+    if (editando) {
+      // Editando — substitui o lançamento antigo
+      const caixa = data.caixa.map(l =>
+        l.id === editando.id
+          ? { ...l, descricao: descricao.trim(), valor: v, tipo: tipoSelecionado, data: dataLanc, categoria: categoria || undefined }
+          : l
+      )
+      update({ ...data, caixa })
+      notify(`"${descricao}" atualizado!`)
+    } else {
+      // Novo lançamento
+      const caixa = addLancamento(data.caixa, descricao.trim(), v, tipoSelecionado, dataLanc, categoria || undefined)
+      update({ ...data, caixa })
+      notify(`"${descricao}" registrado!`)
+    }
     setShowForm(false)
+    setEditando(null)
   }
 
   function removerLancamento(l: LancamentoCaixa) {
@@ -76,11 +113,19 @@ export default function Financas({ data, update }: Props) {
     notify(`"${l.descricao}" removido.`, () => update({ ...data, caixa: prev }))
   }
 
-  // Formulário de novo lançamento
+  // Agrupa lançamentos por dia
+  const porDia = new Map<string, LancamentoCaixa[]>()
+  for (const l of lancamentos) {
+    const arr = porDia.get(l.data) || []
+    arr.push(l)
+    porDia.set(l.data, arr)
+  }
+
+  // Formulário de novo/edição lançamento
   if (showForm) return (
     <div className="p-4 space-y-4 max-w-md mx-auto">
-      <button onClick={() => setShowForm(false)} className="text-sm text-primary font-semibold">← Voltar</button>
-      <h2 className="text-lg font-bold text-lumine-ink">+ Novo lançamento</h2>
+      <button onClick={() => { setShowForm(false); setEditando(null) }} className="text-sm text-primary font-semibold">← Voltar</button>
+      <h2 className="text-lg font-bold text-lumine-ink">{editando ? '✏️ Editar lançamento' : '+ Novo lançamento'}</h2>
 
       {/* Tipo: Receita ou Despesa */}
       <div className="flex gap-2">
@@ -134,7 +179,7 @@ export default function Financas({ data, update }: Props) {
 
       <button onClick={salvarLancamento} disabled={!descricao.trim()}
         className="w-full py-3 bg-primary text-white rounded-xl font-semibold disabled:opacity-50 tapable">
-        💾 Registrar {tipoSelecionado === 'receita' ? 'receita' : 'despesa'}
+        💾 {editando ? 'Salvar alterações' : `Registrar ${tipoSelecionado === 'receita' ? 'receita' : 'despesa'}`}
       </button>
     </div>
   )
@@ -201,25 +246,42 @@ export default function Financas({ data, update }: Props) {
           </div>
         </div>
 
-        {/* Lista de lançamentos do mês */}
+        {/* Lista de lançamentos agrupados por dia */}
         {lancamentos.length === 0 ? (
           <p className="text-center text-accent-light text-sm py-4">Nenhum lançamento neste mês</p>
         ) : (
-          <div className="space-y-1.5">
-            {lancamentos.map(l => (
-              <div key={l.id} className="flex items-center gap-2 bg-lumine-bg rounded-lg px-3 py-2">
-                <span className="text-sm">{l.tipo === 'receita' ? '➕' : '➖'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{l.descricao}</p>
-                  <div className="flex gap-2 text-[10px] text-accent-light">
-                    <span>{formatDate(l.data)}</span>
-                    {l.categoria && <span className="bg-accent-light/10 px-1 rounded">{l.categoria}</span>}
-                  </div>
+          <div className="space-y-3">
+            {Array.from(porDia.entries()).map(([data, itens]) => (
+              <div key={data}>
+                {/* Cabeçalho do dia */}
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs font-semibold text-accent-light">{formatDiaCompleto(data)}</span>
+                  <div className="flex-1 h-px bg-accent-light/15" />
+                  <span className="text-xs font-semibold text-accent-light">
+                    {formatCurrency(itens.reduce((s, i) => s + (i.tipo === 'receita' ? i.valor : -i.valor), 0))}
+                  </span>
                 </div>
-                <span className={`text-sm font-semibold ${l.tipo === 'receita' ? 'text-success' : 'text-danger'}`}>
-                  {l.tipo === 'receita' ? '+' : '−'}{formatCurrency(l.valor)}
-                </span>
-                <button onClick={() => removerLancamento(l)} className="text-danger text-xs ml-1">✕</button>
+
+                {/* Itens do dia */}
+                <div className="space-y-1">
+                  {itens.map(l => (
+                    <div key={l.id} onClick={() => abrirEditar(l)}
+                      className="flex items-center gap-2 bg-lumine-bg rounded-lg px-3 py-2 tapable cursor-pointer"
+                    >
+                      <span className="text-sm">{l.tipo === 'receita' ? '➕' : '➖'}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{l.descricao}</p>
+                        {l.categoria && <span className="text-[10px] text-accent-light bg-accent-light/10 px-1 rounded">{l.categoria}</span>}
+                      </div>
+                      <span className={`text-sm font-semibold ${l.tipo === 'receita' ? 'text-success' : 'text-danger'}`}>
+                        {l.tipo === 'receita' ? '+' : '−'}{formatCurrency(l.valor)}
+                      </span>
+                      <button onClick={(e) => { e.stopPropagation(); removerLancamento(l) }}
+                        className="text-danger text-xs ml-1 w-5 h-5 flex items-center justify-center"
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
