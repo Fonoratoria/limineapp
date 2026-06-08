@@ -107,6 +107,25 @@ export function registrarVenda(vendas: Venda[], itens: ItemVenda[], formaPagamen
   return { vendas: [...vendas, venda], venda }
 }
 
+/** Cancela uma venda: remove da lista e devolve o estoque dos produtos */
+export function cancelarVenda(vendas: Venda[], produtos: Produto[], vendaId: string): { vendas: Venda[]; produtos: Produto[] } {
+  const venda = vendas.find(v => v.id === vendaId)
+  if (!venda) return { vendas, produtos }
+
+  const novasVendas = vendas.filter(v => v.id !== vendaId)
+
+  // Devolve estoque
+  const prodMap = new Map(produtos.map(p => [p.id, p]))
+  for (const item of venda.itens) {
+    const p = prodMap.get(item.produtoId)
+    if (p) {
+      prodMap.set(item.produtoId, { ...p, estoque: p.estoque + item.qtd })
+    }
+  }
+
+  return { vendas: novasVendas, produtos: Array.from(prodMap.values()) }
+}
+
 // Total vendido num dia
 export function totalVendidoDia(vendas: Venda[], data: string): number {
   return vendas.filter(v => v.data === data).reduce((s, v) => s + v.total, 0)

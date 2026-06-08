@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { AppData, LancamentoCaixa, TipoLancamento } from '../types'
+import { AppData, LancamentoCaixa, TipoLancamento, Venda } from '../types'
 import {
   formatCurrency, formatDate, monthStr, todayStr,
   totalVendidoMes, margemLucroMes, rankingProdutosMes,
   addLancamento, deleteLancamento, caixaDoMes,
-  totalReceitasMes, totalDespesasMes, saldoMes, mesesComLancamentos
+  totalReceitasMes, totalDespesasMes, saldoMes, mesesComLancamentos,
+  cancelarVenda
 } from '../store'
 import { useToast } from '../components/Toast'
 
@@ -65,6 +66,15 @@ export default function Financas({ data, update }: Props) {
   const despesasCaixa = totalDespesasMes(data.caixa, mes)
   const saldoCaixa = saldoMes(data.caixa, mes)
   const mesesAnteriores = mesesComLancamentos(data.caixa)
+  const vendasDoMes = data.vendas.filter(v => v.data.startsWith(mes)).sort((a, b) => b.data.localeCompare(a.data) || a.hora.localeCompare(b.hora))
+
+  function cancelar(v: Venda) {
+    const { vendas, produtos } = cancelarVenda(data.vendas, data.produtos, v.id)
+    const prevVendas = data.vendas
+    const prevProdutos = data.produtos
+    update({ ...data, vendas, produtos })
+    notify(`Venda de ${formatCurrency(v.total)} cancelada. Estoque devolvido.`, () => update({ ...data, vendas: prevVendas, produtos: prevProdutos }))
+  }
 
   function abrirNovo() {
     setEditando(null)
@@ -208,6 +218,40 @@ export default function Financas({ data, update }: Props) {
           <span>Receita: {formatCurrency(receita)}</span>
           <span>Custo: {formatCurrency(custo)}</span>
         </div>
+      </div>
+
+      {/* ====== VENDAS DO MÊS ====== */}
+      <div className="bg-card rounded-2xl border border-accent-light/20 p-5">
+        <p className="text-sm text-accent-light font-medium uppercase tracking-wider mb-3">🛒 Vendas do mês</p>
+
+        {vendasDoMes.length === 0 ? (
+          <p className="text-center text-accent-light text-sm py-4">Nenhuma venda neste mês</p>
+        ) : (
+          <div className="space-y-2">
+            {vendasDoMes.map(v => (
+              <div key={v.id} className="bg-lumine-bg rounded-lg px-3 py-2">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-accent-light">{formatDate(v.data)} {v.hora}</span>
+                    {v.clienteNome && <span className="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded">👤 {v.clienteNome}</span>}
+                  </div>
+                  <span className="text-sm font-bold text-lumine-ink">{formatCurrency(v.total)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-accent-light">
+                    {v.itens.map(i => `${i.nome} x${i.qtd}`).join(' · ')}
+                    <span className="ml-2 text-[10px] uppercase">{v.formaPagamento}</span>
+                  </div>
+                  <button onClick={() => cancelar(v)}
+                    className="text-danger text-xs font-semibold flex items-center gap-1 tapable px-2 py-0.5"
+                  >
+                    ✕ Cancelar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ====== CAIXA MENSAL ====== */}
