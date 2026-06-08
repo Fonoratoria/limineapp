@@ -44,7 +44,7 @@ export default function App() {
   const pushGen = useRef(0)
   const lastPull = useRef(0)
 
-  // Envia para a nuvem (puxa antes para não sobrescrever mudanças de outro aparelho)
+  // Envia para a nuvem (envia direto, sem puxar antes — syncNow cuida do merge)
   const doPush = useCallback((next: AppData) => {
     if (!cloudConfigured) return
     dirtyRef.current = true
@@ -53,18 +53,10 @@ export default function App() {
     if (pushTimer.current) window.clearTimeout(pushTimer.current)
     pushTimer.current = window.setTimeout(async () => {
       if (gen !== pushGen.current) return
-      // Puxa a versão mais recente da nuvem e mescla com os dados locais
-      const res = await pullFromCloud()
-      let merged: AppData = next
-      if (res.ok && res.data) {
-        merged = mergeData(next, res.data)
-      }
-      const ok = await pushToCloud(merged)
+      const ok = await pushToCloud(next)
       if (gen !== pushGen.current) return
       if (ok) {
         dirtyRef.current = false
-        saveData(merged)
-        setData(merged)
         setSync('synced')
       } else {
         setSync('offline')
