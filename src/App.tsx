@@ -89,8 +89,13 @@ export default function App() {
     if (res.data && Array.isArray(res.data.produtos)) {
       // Mescla nuvem + local (nuvem tem prioridade para itens com mesmo ID)
       const merged = mergeData(dataRef.current, res.data)
-      saveData(merged)
-      setData(merged)
+      // Só atualiza state se realmente mudou algo (evita re-render desnecessário)
+      const currentJson = JSON.stringify(dataRef.current)
+      const mergedJson = JSON.stringify(merged)
+      if (mergedJson !== currentJson) {
+        saveData(merged)
+        setData(merged)
+      }
       setSync('synced')
     } else {
       // nuvem vazia → sobe dados locais
