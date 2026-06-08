@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, lazy, Suspense } from 'react'
 import { AppData } from './types'
-import { loadData, saveData } from './store'
+import { loadData, saveData, mergeData } from './store'
 import { pullFromCloud, pushToCloud, cloudConfigured, SyncStatus } from './sync'
 import { ToastProvider } from './components/Toast'
 
@@ -44,7 +44,7 @@ export default function App() {
   const pushGen = useRef(0)
   const lastPull = useRef(0)
 
-  // Envia para a nuvem (com pequeno atraso para agrupar mudanças rápidas)
+  // Envia para a nuvem (puxa antes para não sobrescrever mudanças de outro aparelho)
   const doPush = useCallback((next: AppData) => {
     if (!cloudConfigured) return
     dirtyRef.current = true
@@ -53,10 +53,22 @@ export default function App() {
     if (pushTimer.current) window.clearTimeout(pushTimer.current)
     pushTimer.current = window.setTimeout(async () => {
       if (gen !== pushGen.current) return
-      const ok = await pushToCloud(next)
+      // Puxa a versão mais recente da nuvem e mescla com os dados locais
+      const res = await pullFromCloud()
+      let merged: AppData = next
+      if (res.ok && res.data) {
+        merged = mergeData(next, res.data)
+      }
+      const ok = await pushToCloud(merged)
       if (gen !== pushGen.current) return
-      if (ok) { dirtyRef.current = false; setSync('synced') }
-      else setSync('offline')
+      if (ok) {
+        dirtyRef.current = false
+        saveData(merged)
+        setData(merged)
+        setSync('synced')
+      } else {
+        setSync('offline')
+      }
     }, 800)
   }, [])
 
@@ -66,7 +78,7 @@ export default function App() {
     doPush(next)
   }, [doPush])
 
-  // Sincroniza (puxa da nuvem). Se houver mudanças locais não enviadas, envia primeiro.
+  // Sincroniza (puxa da nuvem e mescla com dados locais)
   const syncNow = useCallback(async () => {
     if (!cloudConfigured) { setSync('offline'); return }
     if (dirtyRef.current) { doPush(dataRef.current); return }
@@ -75,8 +87,10 @@ export default function App() {
     const res = await pullFromCloud()
     if (!res.ok) { setSync('offline'); return }
     if (res.data && Array.isArray(res.data.produtos)) {
-      saveData(res.data)
-      setData(res.data)
+      // Mescla nuvem + local (nuvem tem prioridade para itens com mesmo ID)
+      const merged = mergeData(dataRef.current, res.data)
+      saveData(merged)
+      setData(merged)
       setSync('synced')
     } else {
       // nuvem vazia → sobe dados locais

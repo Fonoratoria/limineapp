@@ -19,6 +19,24 @@ export function saveData(data: AppData): void {
   localStorage.setItem(KEY, JSON.stringify(data))
 }
 
+// ====== Merge (junta dados locais com nuvem sem perder nada) ======
+export function mergeData(local: AppData, remote: AppData): AppData {
+  const mergeById = <T extends { id: string }>(existing: T[], incoming: T[]): T[] => {
+    const map = new Map(existing.map(x => [x.id, x]))
+    for (const item of incoming) {
+      if (!map.has(item.id)) map.set(item.id, item)
+    }
+    return Array.from(map.values())
+  }
+  return {
+    produtos: mergeById(local.produtos, remote.produtos),
+    vendas: mergeById(local.vendas, remote.vendas),
+    pedidos: mergeById(local.pedidos, remote.pedidos),
+    clientes: mergeById(local.clientes, remote.clientes),
+    caixa: mergeById(local.caixa, remote.caixa),
+  }
+}
+
 // ====== Helpers de data ======
 
 export function todayStr(): string {
